@@ -130,7 +130,7 @@
       Experience: <div id="expBar"><div id="expFill"></div></div>
     </div>
     <div>
-      STR: <span id="strStat">0</span> | DEF: <span id="defStat">0</span> | Speed: <span id="speedStat">0</span>
+        STR: <span id="strStat">0</span> | DEF: <span id="defStat">0</span> | Speed: <span id="speedStat">0</span>
     </div>
   </div>
   <div id="inventory">
@@ -144,6 +144,7 @@
     </div>
   </div>
   <div id="pauseOverlay">Game Paused. Press P to Resume.</div>
+  
   <div id="levelUpMenu">
     <p>Level Up! Choose a stat to increase:</p>
     <button class="stat-button" data-stat="str">Increase STR</button>
@@ -187,8 +188,8 @@
     };
 
     const equipped = {
-      sword: false,
-      breastplate: false
+      sword: true,
+      breastplate: true
     };
 
     const gravity = 0.5;
@@ -214,55 +215,109 @@
       { x: 0, y: 400, width: 3000, height: 20, color: "#8e44ad" }
     ];
 
+    const collectibles = [
+      { x: 200, y: 350, width: 20, height: 20, color: "#f1c40f", collected: false },
+      { x: 1000, y: 350, width: 20, height: 20, color: "#f1c40f", collected: false },
+      { x: 2300, y: 350, width: 20, height: 20, color: "#f1c40f", collected: false }
+    ];
+
+    const enemies = [
+      { x: 500, y: 370, width: 40, height: 30, color: "#e74c3c", dx: 1, health: 25, attacking: false, cooldown: 0 },
+      { x: 1200, y: 370, width: 40, height: 30, color: "#e74c3c", dx: -1, health: 25, attacking: false, cooldown: 0 },
+      { x: 2200, y: 370, width: 40, height: 30, color: "#e74c3c", dx: 1, health: 25, attacking: false, cooldown: 0 }
+    ];
+
+    let camera = {
+      x: 0,
+      y: 0,
+      width: canvas.width,
+      height: canvas.height,
+    };
+
     function updateExperience(points) {
       experience += points;
       const nextLevelExp = expNeeded(level);
       if (experience >= nextLevelExp) {
         level++;
         experience -= nextLevelExp;
-        skillPoints++;
-        health = maxHealth; // Restore health to max
         alert(`Level Up! You are now level ${level}`);
-        showLevelUpMenu();
       }
       expBar.style.width = `${(experience / expNeeded(level)) * 100}%`;
     }
 
-    function showLevelUpMenu() {
-      levelUpMenu.style.display = "block";
-    }
-
-    levelUpMenu.addEventListener("click", e => {
-      if (e.target.classList.contains("stat-button")) {
-        const stat = e.target.getAttribute("data-stat");
-        stats[stat]++;
-        skillPoints--;
-        updateStatsDisplay();
-        levelUpMenu.style.display = "none";
-      }
-    });
-
-    function updateStatsDisplay() {
-      strStatDisplay.textContent = stats.str;
-      defStatDisplay.textContent = stats.def;
-      speedStatDisplay.textContent = stats.speed;
-    }
-
-    document.getElementById("swordSlot").addEventListener("click", () => {
-      equipped.sword = !equipped.sword;
-      stats.str += equipped.sword ? 3 : -3;
-      updateStatsDisplay();
-    });
-
-    document.getElementById("breastplateSlot").addEventListener("click", () => {
-      equipped.breastplate = !equipped.breastplate;
-      stats.def += equipped.breastplate ? 2 : -2;
-      updateStatsDisplay();
-    });
-
     function drawPlayer() {
       ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.width, player.height);
+      ctx.fillRect(player.x - camera.x, player.y - camera.y, player.width, player.height);
+
+      // Draw direction indicator
+      ctx.fillStyle = "#fff";
+      if (player.facing === "right") {
+        ctx.fillRect(player.x + player.width - camera.x, player.y + player.height / 2 - 5 - camera.y, 10, 10);
+      } else {
+        ctx.fillRect(player.x - 10 - camera.x, player.y + player.height / 2 - 5 - camera.y, 10, 10);
+      }
+
+      // Draw sword attack
+      if (player.attacking) {
+        ctx.fillStyle = "#f39c12";
+        const swordWidth = player.swordRange;
+        const swordHeight = player.height / 2;
+        if (player.facing === "right") {
+          ctx.fillRect(player.x + player.width - camera.x, player.y + player.height / 4 - camera.y, swordWidth, swordHeight);
+        } else {
+          ctx.fillRect(player.x - swordWidth - camera.x, player.y + player.height / 4 - camera.y, swordWidth, swordHeight);
+        }
+      }
+    }
+
+    function drawPlatforms() {
+      platforms.forEach(platform => {
+        ctx.fillStyle = platform.color;
+        ctx.fillRect(
+          platform.x - camera.x,
+          platform.y - camera.y,
+          platform.width,
+          platform.height
+        );
+      });
+    }
+
+    function drawCollectibles() {
+      collectibles.forEach(item => {
+        if (!item.collected) {
+          ctx.fillStyle = item.color;
+          ctx.fillRect(
+            item.x - camera.x,
+            item.y - camera.y,
+            item.width,
+            item.height
+          );
+        }
+      });
+    }
+
+    function drawEnemies() {
+      enemies.forEach(enemy => {
+        ctx.fillStyle = enemy.color;
+        ctx.fillRect(
+          enemy.x - camera.x,
+          enemy.y - camera.y,
+          enemy.width,
+          enemy.height
+        );
+
+        // Draw enemy sword attack
+        if (enemy.attacking) {
+          ctx.fillStyle = "#c0392b";
+          const swordWidth = 30;
+          const swordHeight = enemy.height / 2;
+          if (enemy.dx > 0) {
+            ctx.fillRect(enemy.x + enemy.width - camera.x, enemy.y + enemy.height / 4 - camera.y, swordWidth, swordHeight);
+          } else {
+            ctx.fillRect(enemy.x - swordWidth - camera.x, enemy.y + enemy.height / 4 - camera.y, swordWidth, swordHeight);
+          }
+        }
+      });
     }
 
     function applyPhysics() {
@@ -285,11 +340,107 @@
         }
       });
 
+      // Prevent going out of bounds
       if (player.y + player.height > canvas.height) {
         player.y = canvas.height - player.height;
         player.dy = 0;
         player.onGround = true;
       }
+
+      if (player.x < 0) player.x = 0;
+    }
+
+    function updateCamera() {
+      camera.x = player.x + player.width / 2 - camera.width / 2;
+      camera.y = player.y + player.height / 2 - camera.height / 2;
+
+      // Constrain camera to game world (optional)
+      camera.x = Math.max(0, camera.x);
+      camera.y = Math.max(0, camera.y);
+    }
+
+    function updateCollectibles() {
+      collectibles.forEach(item => {
+        if (
+          !item.collected &&
+          player.x < item.x + item.width &&
+          player.x + player.width > item.x &&
+          player.y < item.y + item.height &&
+          player.y + player.height > item.y
+        ) {
+          item.collected = true;
+          coins++;
+          coinCountDisplay.textContent = coins;
+        }
+      });
+    }
+
+    function updateEnemies() {
+      enemies.forEach((enemy, index) => {
+        enemy.x += enemy.dx;
+        // Reverse direction when hitting boundaries
+        if (enemy.x <= 0 || enemy.x + enemy.width >= 3000) {
+          enemy.dx *= -1;
+        }
+
+        // Reduce cooldown
+        if (enemy.cooldown > 0) enemy.cooldown -= 1 / 60;
+
+        // Enemy sword attack
+        if (enemy.cooldown <= 0) {
+          const swordWidth = 30;
+          if (
+            player.x < enemy.x + enemy.width + swordWidth &&
+            player.x + player.width > enemy.x - swordWidth &&
+            player.y + player.height / 2 >= enemy.y &&
+            player.y + player.height / 2 <= enemy.y + enemy.height
+          ) {
+            const damage = 10 * (1 - 0.02); // Apply 2% reduction
+            health -= damage;
+            healthBar.value = health;
+            if (health <= 0) {
+              alert("Game Over!");
+              lives = 3;
+              coins = 0;
+              health = maxHealth;
+              coinCountDisplay.textContent = coins;
+              livesDisplay.textContent = lives;
+              healthBar.value = health;
+            }
+            enemy.cooldown = 1.5; // Cooldown in seconds
+          }
+        }
+
+        // Check player sword attack
+        if (player.attacking) {
+          const swordWidth = player.swordRange;
+          if (
+            player.facing === "right" &&
+            player.x + player.width + swordWidth >= enemy.x &&
+            player.x + player.width <= enemy.x + enemy.width &&
+            player.y + player.height / 2 >= enemy.y &&
+            player.y + player.height / 2 <= enemy.y + enemy.height
+          ) {
+            enemy.health -= player.swordDamage;
+            if (enemy.health <= 0) {
+              enemies.splice(index, 1);
+              updateExperience(5);
+            }
+          } else if (
+            player.facing === "left" &&
+            player.x - swordWidth <= enemy.x + enemy.width &&
+            player.x >= enemy.x &&
+            player.y + player.height / 2 >= enemy.y &&
+            player.y + player.height / 2 <= enemy.y + enemy.height
+          ) {
+            enemy.health -= player.swordDamage;
+            if (enemy.health <= 0) {
+              enemies.splice(index, 1);
+              updateExperience(5);
+            }
+          }
+        }
+      });
     }
 
     function handleInput() {
@@ -303,6 +454,7 @@
           player.facing = "left";
         }
         if (e.code === "Space" && player.onGround) player.dy = player.jumpPower;
+        if (e.code === "Enter") player.attacking = true;
         if (e.code === "KeyI") {
           inventoryDiv.style.display = inventoryDiv.style.display === "none" ? "block" : "none";
         }
@@ -314,6 +466,7 @@
 
       window.addEventListener("keyup", e => {
         if (e.code === "KeyD" || e.code === "KeyA") player.dx = 0;
+        if (e.code === "Enter") player.attacking = false;
       });
     }
 
@@ -321,13 +474,18 @@
       if (isPaused) return requestAnimationFrame(gameLoop);
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      updateCamera();
+      updateCollectibles();
+      updateEnemies();
+      drawPlatforms();
+      drawCollectibles();
+      drawEnemies();
       drawPlayer();
       applyPhysics();
       requestAnimationFrame(gameLoop);
     }
 
     handleInput();
-    updateStatsDisplay();
     gameLoop();
   </script>
 </body>
